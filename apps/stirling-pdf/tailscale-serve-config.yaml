@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tailscale-serve-config
+  namespace: stirling-pdf
+data:
+  # ${TS_CERT_DOMAIN} is substituted by the tailscale container at startup
+  serve.json: |
+    {
+      "TCP": {
+        "443": { "HTTPS": true }
+      },
+      "Web": {
+        "${TS_CERT_DOMAIN}:443": {
+          "Handlers": {
+            "/": { "Proxy": "http://127.0.0.1:8080" }
+          }
+        }
+      },
+      "AllowFunnel": {
+        "${TS_CERT_DOMAIN}:443": false
+      }
+    }
