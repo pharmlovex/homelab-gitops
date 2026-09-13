@@ -6,6 +6,7 @@ metadata:
   labels:
     app.kubernetes.io/name: stirling-pdf
 spec:
+  storageClassName: local-path
   accessModes:
     - ReadWriteOnce
   resources:
