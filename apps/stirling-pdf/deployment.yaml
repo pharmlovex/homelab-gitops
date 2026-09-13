@@ -22,7 +22,7 @@ spec:
       serviceAccountName: default
       containers:
         - name: stirling-pdf
-          image: stirlingtools/stirling-pdf:latest
+          image: stirlingtools/stirling-pdf:2.14.3
           ports:
             - name: http
               containerPort: 8080
