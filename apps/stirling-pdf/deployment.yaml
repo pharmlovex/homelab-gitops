@@ -17,6 +17,9 @@ spec:
       labels:
         app.kubernetes.io/name: stirling-pdf
     spec:
+      # Explicit: removing serviceAccountName leaves the deprecated
+      # serviceAccount field behind on the live object, which re-sets it
+      serviceAccountName: default
       containers:
         - name: stirling-pdf
           image: stirlingtools/stirling-pdf:latest
