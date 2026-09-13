@@ -17,7 +17,6 @@ spec:
       labels:
         app.kubernetes.io/name: stirling-pdf
     spec:
-      serviceAccountName: tailscale
       containers:
         - name: stirling-pdf
           image: stirlingtools/stirling-pdf:latest
@@ -60,53 +59,9 @@ spec:
               memory: 512Mi
             limits:
               memory: 2Gi
-
-        # Tailscale sidecar: joins the tailnet and serves Stirling PDF over HTTPS
-        # at https://stirling-pdf.<tailnet-name>.ts.net
-        - name: tailscale
-          image: ghcr.io/tailscale/tailscale:latest
-          env:
-            - name: TS_HOSTNAME
-              value: stirling-pdf
-            - name: TS_AUTHKEY
-              valueFrom:
-                secretKeyRef:
-                  name: tailscale-auth
-                  key: TS_AUTHKEY
-                  optional: true
-            - name: TS_KUBE_SECRET
-              value: tailscale-state
-            - name: TS_USERSPACE
-              value: "true"
-            - name: TS_SERVE_CONFIG
-              value: /config/serve.json
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-            - name: POD_UID
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.uid
-          securityContext:
-            runAsUser: 1000
-            runAsGroup: 1000
-          volumeMounts:
-            - name: tailscale-serve-config
-              mountPath: /config
-              readOnly: true
-          resources:
-            requests:
-              cpu: 10m
-              memory: 64Mi
-            limits:
-              memory: 256Mi
       volumes:
         - name: data
           persistentVolumeClaim:
             claimName: stirling-pdf-data
         - name: logs
           emptyDir: {}
-        - name: tailscale-serve-config
-          configMap:
-            name: tailscale-serve-config
