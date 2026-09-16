@@ -59,11 +59,11 @@ argocd/
 
 ### Application (`src/pantry/`)
 - FastAPI, served by uvicorn on port 8000, running as a non-root user.
-- Endpoints: `GET /healthz` (liveness; also checks the DB with `SELECT 1` for readiness),
+- Endpoints: `GET /livez` (liveness, no DB access), `GET /healthz` (readiness; DB `SELECT 1`, 503 on failure),
   `GET /items` (list), `POST /items` (`{"name": str}` → created row).
 - Builds its connection from the env vars `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`,
   `POSTGRES_HOST` and `POSTGRES_PORT`. The first three come from the Secret; host and port are plain env vars.
-- Creates the `items` table (`id serial primary key, name text not null`) on startup when it is missing.
+- Creates the `items` table (`id serial primary key, name text not null`) with `IF NOT EXISTS` on the first successful DB connection in each process, not at startup, so a missing DB never crashes the app.
 - Uses `psycopg[binary]`; no ORM.
 
 ### Secret (`apps/pantry/postgres-secret.enc.yaml`)
@@ -89,7 +89,7 @@ creation_rules:
 
 ### FastAPI Deployment and Service
 - Image `ghcr.io/pharmlovex/pantry:<pinned sha tag>`, `envFrom` the Secret,
-  `POSTGRES_HOST=postgres`, and liveness/readiness probes on `/healthz`.
+  `POSTGRES_HOST=postgres`, a liveness probe on `/livez` and a readiness probe on `/healthz`.
 - Explicit `serviceAccountName: default`, matching the stirling-pdf convention.
 - ClusterIP Service `pantry` on port 80, targeting 8000.
 
@@ -147,7 +147,8 @@ creation_rules:
   `ComparisonError` with sops stderr. Nothing is applied.
 - **Sidecar not registered:** the Application reports that plugin `sops` was not found. Check that the
   repo-server pod runs 2/2 containers and read the sidecar logs.
-- **App can't reach the DB:** readiness on `/healthz` fails, and the pod stays unready without crash-looping.
+- **App can't reach the DB:** readiness on `/healthz` returns 503, and the pod stays unready. Liveness (`/livez`)
+  doesn't touch the DB, so the pod isn't restarted. The table is created lazily on the first successful connection.
 
 ## Runbook (to include in README or docs)
 
