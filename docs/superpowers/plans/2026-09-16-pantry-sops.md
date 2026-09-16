@@ -144,13 +144,13 @@ SOPS_AGE_KEY_FILE="$HOME/.config/sops/age/keys.txt" \
 - [ ] **Step 3: Verify the encryption**
 
 ```bash
-grep -c 'ENC\[AES256_GCM' apps/pantry/postgres-secret.enc.yaml   # expect 3
+grep -c 'ENC\[AES256_GCM' apps/pantry/postgres-secret.enc.yaml   # expect 4 (3 values + sops mac)
 grep -q "$(grep POSTGRES_PASSWORD apps/pantry/postgres-secret.dec.yaml | awk '{print $2}')" apps/pantry/postgres-secret.enc.yaml && echo "LEAK" || echo "no plaintext"
 grep 'name: postgres-credentials' apps/pantry/postgres-secret.enc.yaml
 SOPS_AGE_KEY_FILE="$HOME/.config/sops/age/keys.txt" sops --decrypt apps/pantry/postgres-secret.enc.yaml | diff - apps/pantry/postgres-secret.dec.yaml && echo "round-trip OK"
 ```
 Expected output:
-- `3`
+- `4`
 - `no plaintext`
 - the metadata name line, still readable
 - `round-trip OK`
