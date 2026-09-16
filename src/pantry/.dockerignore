@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+.pytest_cache/
+conftest.py
+test_*.py
+requirements-dev.txt
