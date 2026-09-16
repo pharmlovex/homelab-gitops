@@ -1,0 +1,9 @@
+# Plaintext secrets: only *.enc.yaml may be committed
+*.dec.yaml
+*.dec.yml
+keys.txt
+
+# Python
+.venv/
+__pycache__/
+.pytest_cache/
