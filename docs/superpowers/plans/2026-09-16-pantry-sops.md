@@ -793,6 +793,8 @@ spec:
               path: /healthz
               port: http
             periodSeconds: 10
+            # DB connect_timeout is 3s; default probe timeout (1s) is too short
+            timeoutSeconds: 5
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
