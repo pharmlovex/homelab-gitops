@@ -15,10 +15,6 @@ CREATE TABLE IF NOT EXISTS items (
 
 app = FastAPI(title="pantry")
 
-# Table is created on the first successful connection, not at startup,
-# so the app starts (and stays live) even when Postgres is down.
-_schema_ready = False
-
 
 def conninfo() -> str:
     return psycopg.conninfo.make_conninfo(
@@ -32,12 +28,13 @@ def conninfo() -> str:
 
 @contextmanager
 def get_conn() -> Iterator[psycopg.Connection]:
-    global _schema_ready
+    # The table is ensured on every connection, not at startup, so the app
+    # starts (and stays live) even when Postgres is down, and recovers if
+    # the table later disappears (e.g. a PVC gets recreated). CREATE TABLE
+    # IF NOT EXISTS is cheap enough to run unconditionally.
     with psycopg.connect(conninfo(), connect_timeout=3) as conn:
-        if not _schema_ready:
-            conn.execute(SCHEMA)
-            conn.commit()
-            _schema_ready = True
+        conn.execute(SCHEMA)
+        conn.commit()
         yield conn
 
 

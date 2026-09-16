@@ -10,6 +10,9 @@ os.environ.setdefault("POSTGRES_USER", "pantry")
 os.environ.setdefault("POSTGRES_PASSWORD", "pantry")
 os.environ.setdefault("POSTGRES_DB", "pantry")
 
+if os.environ["POSTGRES_HOST"] not in ("localhost", "127.0.0.1"):
+    raise RuntimeError("tests truncate tables; refusing to run against non-local POSTGRES_HOST")
+
 import main  # noqa: E402
 
 

@@ -39,3 +39,11 @@ def test_create_then_list(client):
 def test_create_rejects_empty_name(client):
     r = client.post("/items", json={"name": ""})
     assert r.status_code == 422
+
+
+def test_items_recover_after_table_dropped(client):
+    with main.get_conn() as conn:
+        conn.execute("DROP TABLE items")
+    r = client.get("/items")
+    assert r.status_code == 200
+    assert r.json() == []
