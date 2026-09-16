@@ -11,7 +11,7 @@ RUN apk add --no-cache age ca-certificates \
  && grep " ${bin}\$" "sops-v${SOPS_VERSION}.checksums.txt" | sha256sum -c - \
  && install -m 0755 "${bin}" /usr/local/bin/sops \
  && rm -f /tmp/sops-* \
- && sops --version
+ && sops --version --disable-version-check
 
 # Argo CD requires CMP sidecars to run as uid 999.
 # alpine:3.22 already reserves gid 999 for the built-in "ping" group, so
@@ -21,7 +21,7 @@ RUN addgroup argocd \
  && adduser -D -u 999 -G argocd -h /home/argocd argocd
 
 COPY --chmod=0755 generate.sh /usr/local/bin/generate.sh
-COPY --chown=999:999 plugin.yaml /home/argocd/cmp-server/config/plugin.yaml
+COPY --chown=argocd:argocd plugin.yaml /home/argocd/cmp-server/config/plugin.yaml
 
 USER 999
 WORKDIR /home/argocd

@@ -9,6 +9,7 @@ fail() { echo "FAIL: $*" >&2; exit 1; }
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 mkdir "$work/app"
+mkdir "$work/empty"
 
 age-keygen -o "$work/keys.txt" 2>/dev/null
 age-keygen -o "$work/wrong.txt" 2>/dev/null
@@ -19,6 +20,17 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: plain
+data:
+  key: value
+EOF
+
+# Sorts after secret.enc.yaml, so it proves the render aborts mid-loop on
+# a decrypt failure instead of skipping the bad file and continuing.
+cat > "$work/app/zz.yaml" <<'EOF'
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: zz
 data:
   key: value
 EOF
@@ -40,6 +52,7 @@ chmod -R a+rX "$work"
 
 run() {
   docker run --rm --entrypoint /usr/local/bin/generate.sh \
+    --read-only --tmpfs /tmp --user 999 \
     -e SOPS_AGE_KEY_FILE=/keys/keys.txt \
     -v "$1:/keys/keys.txt:ro" -v "$work/app:/app:ro" -w /app "$IMAGE"
 }
@@ -47,11 +60,19 @@ run() {
 out="$(run "$work/keys.txt")"
 grep -q 'password: hunter2' <<<"$out" || fail "secret not decrypted"
 grep -q 'name: plain' <<<"$out" || fail "plain manifest missing"
+grep -q 'name: zz' <<<"$out" || fail "later plain manifest missing"
 grep -q '^sops:' <<<"$out" && fail "sops metadata leaked into output"
-[ "$(grep -c '^kind:' <<<"$out")" = 2 ] || fail "expected 2 documents"
+[ "$(grep -c '^kind:' <<<"$out")" = 3 ] || fail "expected 3 documents"
 
-if run "$work/wrong.txt" >/dev/null 2>&1; then
+if out="$(run "$work/wrong.txt" 2>&1)"; then
   fail "decryption with wrong key should fail"
+fi
+grep -q 'name: zz' <<<"$out" && fail "render continued after sops failure"
+
+if docker run --rm --entrypoint /usr/local/bin/generate.sh \
+    --read-only --tmpfs /tmp --user 999 \
+    -v "$work/empty:/app:ro" -w /app "$IMAGE" >/dev/null 2>&1; then
+  fail "generate should fail when no manifests are found"
 fi
 
 [ "$(docker run --rm --entrypoint id "$IMAGE" -u)" = 999 ] || fail "image must run as uid 999"

@@ -13,3 +13,5 @@ for f in *.yaml *.yml; do
     *) cat "$f" ;;
   esac
 done
+
+[ "$first" -eq 0 ] || { echo "no manifests found in $PWD" >&2; exit 1; }
