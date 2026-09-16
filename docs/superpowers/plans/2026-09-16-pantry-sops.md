@@ -203,7 +203,7 @@ httpx>=0.27,<1
 (cd src/pantry && uv venv --python 3.12 .venv && uv pip install --python .venv/bin/python -r requirements-dev.txt)
 docker run -d --name pantry-test-pg \
   -e POSTGRES_USER=pantry -e POSTGRES_PASSWORD=pantry -e POSTGRES_DB=pantry \
-  -p 55432:5432 postgres:16-alpine
+  -p 56432:5432 postgres:16-alpine
 until docker exec pantry-test-pg pg_isready -U pantry -d pantry; do sleep 1; done
 ```
 Expected: this ends with `/var/run/postgresql:5432 - accepting connections`.
@@ -219,7 +219,7 @@ from fastapi.testclient import TestClient
 
 # Local test Postgres (see plan Task 3 Step 2). Real env vars win.
 os.environ.setdefault("POSTGRES_HOST", "localhost")
-os.environ.setdefault("POSTGRES_PORT", "55432")
+os.environ.setdefault("POSTGRES_PORT", "56432")
 os.environ.setdefault("POSTGRES_USER", "pantry")
 os.environ.setdefault("POSTGRES_PASSWORD", "pantry")
 os.environ.setdefault("POSTGRES_DB", "pantry")
@@ -437,7 +437,7 @@ CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
 ```bash
 docker build -t pantry:test src/pantry
 docker run -d --rm --name pantry-smoke -p 18000:8000 --read-only \
-  -e POSTGRES_HOST=host.docker.internal -e POSTGRES_PORT=55432 \
+  -e POSTGRES_HOST=host.docker.internal -e POSTGRES_PORT=56432 \
   -e POSTGRES_USER=pantry -e POSTGRES_PASSWORD=pantry -e POSTGRES_DB=pantry \
   pantry:test
 sleep 3
@@ -1090,7 +1090,7 @@ jobs:
           POSTGRES_PASSWORD: pantry
           POSTGRES_DB: pantry
         ports:
-          - 55432:5432
+          - 56432:5432
         options: >-
           --health-cmd "pg_isready -U pantry -d pantry"
           --health-interval 5s
