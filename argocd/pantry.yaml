@@ -1,0 +1,25 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: pantry
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/pharmlovex/homelab-gitops.git
+    targetRevision: main
+    path: apps/pantry
+    # Rendered by the argocd-sops CMP sidecar, which decrypts *.enc.yaml
+    plugin:
+      name: sops
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: pantry
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
