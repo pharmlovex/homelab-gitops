@@ -1,0 +1,10 @@
+# Upstream Argo CD install, pinned to the version running in the cluster,
+# plus the sops CMP sidecar on argocd-repo-server.
+# Apply: kubectl apply -k argocd-install --server-side --force-conflicts
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: argocd
+resources:
+  - https://raw.githubusercontent.com/argoproj/argo-cd/v3.5.2/manifests/install.yaml
+patches:
+  - path: repo-server-sops-patch.yaml

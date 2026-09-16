@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: argocd-repo-server
+spec:
+  template:
+    spec:
+      containers:
+        - name: sops
+          image: ghcr.io/pharmlovex/argocd-sops:3.13.3
+          command: [/var/run/argocd/argocd-cmp-server]
+          env:
+            - name: SOPS_AGE_KEY_FILE
+              value: /home/argocd/.config/sops/age/keys.txt
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 999
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: var-files
+              mountPath: /var/run/argocd
+            - name: plugins
+              mountPath: /home/argocd/cmp-server/plugins
+            - name: sops-tmp
+              mountPath: /tmp
+            # Created by hand, never committed (see docs/sops-runbook.md)
+            - name: sops-age
+              mountPath: /home/argocd/.config/sops/age
+              readOnly: true
+      volumes:
+        - name: sops-tmp
+          emptyDir: {}
+        - name: sops-age
+          secret:
+            secretName: sops-age
