@@ -1,4 +1,4 @@
-# gitops-demo: learning SOPS with Argo CD
+# pantry: learning SOPS with Argo CD
 
 **Date:** 2026-09-16
 **Status:** Approved design
@@ -10,7 +10,7 @@ are stored in Git **encrypted with SOPS (age)** and decrypted by Argo CD at sync
 time through a custom Config Management Plugin (CMP) sidecar. The purpose is
 learning: every moving part is visible and owned in this repo.
 
-Success = `curl https://gitops-demo.tail165dd5.ts.net/items` returns rows written
+Success = `curl https://pantry.tail165dd5.ts.net/items` returns rows written
 by a prior `POST /items`, with the app deployed by Argo CD from a repo containing
 only the encrypted secret.
 
@@ -32,9 +32,9 @@ only the encrypted secret.
 .sops.yaml
 .gitignore                         # blocks plaintext secret files
 .github/workflows/
-  build-app.yaml                   # src/gitops-demo/** → ghcr.io/pharmlovex/gitops-demo:<sha>, :latest
+  build-app.yaml                   # src/pantry/** → ghcr.io/pharmlovex/pantry:<sha>, :latest
   build-sops.yaml                  # argocd-sops/**     → ghcr.io/pharmlovex/argocd-sops:<version>, :latest
-src/gitops-demo/
+src/pantry/
   main.py
   requirements.txt
   Dockerfile
@@ -44,20 +44,20 @@ argocd-sops/
 argocd-install/
   kustomization.yaml               # upstream install.yaml at a pinned Argo CD version
   repo-server-sops-patch.yaml
-apps/gitops-demo/
+apps/pantry/
   namespace.yaml
   postgres.yaml                    # headless Service + StatefulSet (volumeClaimTemplate, local-path)
   postgres-secret.enc.yaml         # SOPS-encrypted Secret
   fastapi.yaml                     # Deployment
   service.yaml                     # ClusterIP for FastAPI
-  ingress.yaml                     # tailscale Ingress, host "gitops-demo"
+  ingress.yaml                     # tailscale Ingress, host "pantry"
 argocd/
-  gitops-demo.yaml                 # Application, source.plugin.name: sops
+  pantry.yaml                      # Application, source.plugin.name: sops
 ```
 
 ## Components
 
-### Application (`src/gitops-demo/`)
+### Application (`src/pantry/`)
 - FastAPI, served by uvicorn on port 8000, running as a non-root user.
 - Endpoints: `GET /healthz` (liveness; also checks the DB with `SELECT 1` for readiness),
   `GET /items` (list), `POST /items` (`{"name": str}` → created row).
@@ -66,8 +66,8 @@ argocd/
 - Creates the `items` table (`id serial primary key, name text not null`) on startup when it is missing.
 - Uses `psycopg[binary]`; no ORM.
 
-### Secret (`apps/gitops-demo/postgres-secret.enc.yaml`)
-- A `v1/Secret` named `postgres-credentials` in namespace `gitops-demo`, with `stringData`
+### Secret (`apps/pantry/postgres-secret.enc.yaml`)
+- A `v1/Secret` named `postgres-credentials` in namespace `pantry`, with `stringData`
   keys `POSTGRES_USER`, `POSTGRES_PASSWORD` and `POSTGRES_DB`.
 - Only `data`/`stringData` values are encrypted (`encrypted_regex: ^(data|stringData)$`), so
   metadata stays readable in diffs.
@@ -81,20 +81,20 @@ creation_rules:
     age: <age public key>
 ```
 
-### Postgres (`apps/gitops-demo/postgres.yaml`)
+### Postgres (`apps/pantry/postgres.yaml`)
 - `postgres:16-alpine` StatefulSet with 1 replica and `envFrom` the Secret.
 - A volumeClaimTemplate of 1Gi with `storageClassName: local-path`; `PGDATA` points to a subdirectory.
 - Headless Service `postgres` on port 5432.
 - A readiness probe runs `pg_isready`.
 
 ### FastAPI Deployment and Service
-- Image `ghcr.io/pharmlovex/gitops-demo:<pinned sha tag>`, `envFrom` the Secret,
+- Image `ghcr.io/pharmlovex/pantry:<pinned sha tag>`, `envFrom` the Secret,
   `POSTGRES_HOST=postgres`, and liveness/readiness probes on `/healthz`.
 - Explicit `serviceAccountName: default`, matching the stirling-pdf convention.
-- ClusterIP Service `gitops-demo` on port 80, targeting 8000.
+- ClusterIP Service `pantry` on port 80, targeting 8000.
 
 ### Ingress
-- `ingressClassName: tailscale`, default backend `gitops-demo:80`, `tls.hosts: [gitops-demo]`.
+- `ingressClassName: tailscale`, default backend `pantry:80`, `tls.hosts: [pantry]`.
 
 ### SOPS plugin image (`argocd-sops/`)
 - Alpine base with pinned `sops` and `age` binaries (version pinned through build args).
@@ -120,13 +120,13 @@ creation_rules:
   - new volumes `sops-tmp` (emptyDir) and `sops-age` (secret `sops-age`)
 - The Secret `argocd/sops-age` (key `keys.txt`) is created manually and is **never committed**.
 
-### Argo CD Application (`argocd/gitops-demo.yaml`)
+### Argo CD Application (`argocd/pantry.yaml`)
 - Repo `https://github.com/pharmlovex/homelab-gitops`, `targetRevision: main`,
-  `path: apps/gitops-demo`, `plugin: { name: sops }`.
-- Destination namespace `gitops-demo`, automated sync with prune and selfHeal, `CreateNamespace=true`.
+  `path: apps/pantry`, `plugin: { name: sops }`.
+- Destination namespace `pantry`, automated sync with prune and selfHeal, `CreateNamespace=true`.
 
 ### CI
-- `build-app.yaml`: runs on pushes to `main` that touch `src/gitops-demo/**`, and on `workflow_dispatch`.
+- `build-app.yaml`: runs on pushes to `main` that touch `src/pantry/**`, and on `workflow_dispatch`.
   Needs `permissions: packages: write`, uses `docker/login-action` with `GITHUB_TOKEN`, and runs
   `docker/build-push-action` with tags `sha-<short>` and `latest`.
 - `build-sops.yaml`: the same shape for `argocd-sops/**`, with tags `<sops version>` and `latest`.
@@ -136,10 +136,10 @@ creation_rules:
 
 1. You edit `postgres-secret.dec.yaml` locally and run
    `sops -e postgres-secret.dec.yaml > postgres-secret.enc.yaml`, then commit only the `.enc` file.
-2. Argo CD polls `main`, and the repo-server passes `apps/gitops-demo` to the `sops` sidecar.
+2. Argo CD polls `main`, and the repo-server passes `apps/pantry` to the `sops` sidecar.
 3. The sidecar decrypts with the mounted age key and returns plain manifests.
 4. Argo CD applies them: the Secret is created, and Postgres and FastAPI start with its values.
-5. The app is reachable over the tailnet at `https://gitops-demo.tail165dd5.ts.net`.
+5. The app is reachable over the tailnet at `https://pantry.tail165dd5.ts.net`.
 
 ## Error handling
 
@@ -153,7 +153,7 @@ creation_rules:
 
 - One-time key setup: `age-keygen -o ~/.config/sops/age/keys.txt`, then
   `kubectl -n argocd create secret generic sops-age --from-file=keys.txt=$HOME/.config/sops/age/keys.txt`.
-- Edit a secret in place: `sops apps/gitops-demo/postgres-secret.enc.yaml`.
+- Edit a secret in place: `sops apps/pantry/postgres-secret.enc.yaml`.
 - Rotate or add recipients: update `.sops.yaml`, then run `sops updatekeys <file>`.
 - Debug: `kubectl -n argocd logs deploy/argocd-repo-server -c sops`.
 - Apply the Argo CD patch: `kubectl apply -k argocd-install/`.
@@ -169,8 +169,8 @@ creation_rules:
 
 **Cluster, run by the user** (Claude's sandbox cannot reach the cluster):
 - `kubectl -n argocd get pod -l app.kubernetes.io/name=argocd-repo-server` shows 2/2.
-- `argocd app get gitops-demo`, or the UI, shows Synced/Healthy.
-- `kubectl -n gitops-demo get secret postgres-credentials` exists.
+- `argocd app get pantry`, or the UI, shows Synced/Healthy.
+- `kubectl -n pantry get secret postgres-credentials` exists.
 - `POST /items` followed by `GET /items` over the Tailscale hostname returns the item.
 
 ## Out of scope
