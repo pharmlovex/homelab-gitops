@@ -1,0 +1,20 @@
+# Exposed on the tailnet by the Tailscale Kubernetes operator
+# at https://pantry.<tailnet-name>.ts.net
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: pantry
+  namespace: pantry
+  labels:
+    app.kubernetes.io/name: pantry
+    app.kubernetes.io/part-of: pantry
+spec:
+  ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: pantry
+      port:
+        name: http
+  tls:
+    - hosts:
+        - pantry
